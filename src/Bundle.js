@@ -118,6 +118,17 @@ class Bundle {
     return parents;
   }
 
+  getFirstParent(filter) {
+    let bundle = this;
+
+    while (bundle) {
+      if (filter(bundle) != null) {
+        return bundle;
+      }
+      bundle = bundle.parentBundle;
+    }
+  }
+
   findCommonAncestor(bundle) {
     // Get a list of parent bundles going up to the root
     let ourParents = this.getParents();

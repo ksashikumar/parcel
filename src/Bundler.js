@@ -15,6 +15,7 @@ const localRequire = require('./utils/localRequire');
 const config = require('./utils/config');
 const emoji = require('./utils/emoji');
 const loadEnv = require('./utils/env');
+const Graph = require('./Graph');
 
 /**
  * The Bundler is the main entry point. It resolves and loads assets,
@@ -365,24 +366,26 @@ class Bundler extends EventEmitter {
     this.buildQueue.delete(asset);
   }
 
-  createBundleTree(asset, dep, bundle) {
-    if (dep) {
-      asset.parentDeps.add(dep);
-    }
-
+  hoistAsset(asset, bundle) {
     if (asset.parentBundle) {
       // If the asset is already in a bundle, it is shared. Move it to the lowest common ancestor.
       if (asset.parentBundle !== bundle) {
         let commonBundle = bundle.findCommonAncestor(asset.parentBundle);
         if (
           asset.parentBundle !== commonBundle &&
-          asset.parentBundle.type === commonBundle.type
+          asset.parentBundle.type === commonBundle.type &&
+          asset.parentBundle.type !== 'html'
         ) {
           this.moveAssetToBundle(asset, commonBundle);
-          return;
+          return true;
         }
-      } else return;
+      } else return true;
     }
+    return false;
+  }
+
+  createBundleTree(asset, dep, bundle, graph = new Graph()) {
+    if (this.hoistAsset(asset, bundle)) return;
 
     // Create the root bundle if it doesn't exist
     if (!bundle) {
@@ -414,7 +417,18 @@ class Bundler extends EventEmitter {
 
     for (let dep of asset.dependencies.values()) {
       let assetDep = asset.depAssets.get(dep.name);
-      this.createBundleTree(assetDep, dep, bundle);
+      assetDep.parentDeps.add(dep);
+
+      let parent = bundle.getFirstParent(
+        parentBundle => parentBundle.type === assetDep.type
+      );
+      let parentKey = parent
+        ? graph.key(asset.name, parent.name, parent.type)
+        : asset.name;
+      if (!graph.edge(parentKey, assetDep.name)) {
+        graph.add(parentKey, assetDep.name, dep);
+        this.createBundleTree(assetDep, dep, bundle, graph);
+      }
     }
 
     return bundle;
