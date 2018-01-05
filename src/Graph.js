@@ -60,9 +60,9 @@ class Graph {
   }
 
   key() {
-    let cache = (this._cache = this._cache || new Map());
-    let leaf = (this._leaf = this._leaf || Symbol.for('Graph.leaf'));
-    return Graph.key(cache, leaf, [...arguments]);
+    let cache = (Graph._cache = Graph._cache || new Map());
+    let leaf = (Graph._leaf = Graph._leaf || Symbol.for('Graph.leaf'));
+    return Graph.key(cache, leaf, Array.prototype.slice.call(arguments, 0));
   }
 
   add(name, child, plist) {
